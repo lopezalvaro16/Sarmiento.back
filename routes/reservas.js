@@ -30,9 +30,9 @@ router.post('/', async (req, res) => {
   }
   // Validar fecha/hora pasada
   const now = new Date();
-  const reservaDate = new Date(`${fecha}T${hora_desde}`);
-  if (reservaDate < now) {
-    return res.status(400).json({ error: 'No se puede reservar en el pasado' });
+  const hoyStr = now.toISOString().slice(0,10);
+  if (fecha < hoyStr || (fecha === hoyStr && hora_desde <= now.toTimeString().slice(0,5))) {
+    return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
   // Validar superposición
   try {
@@ -78,11 +78,11 @@ router.put('/:id', async (req, res) => {
   if (hora_hasta <= hora_desde) {
     return res.status(400).json({ error: 'La hora de fin debe ser mayor a la de inicio' });
   }
-  // Validar fecha/hora pasada
-  const now = new Date();
-  const reservaDate = new Date(`${fecha}T${hora_desde}`);
-  if (reservaDate < now) {
-    return res.status(400).json({ error: 'No se puede reservar en el pasado' });
+  // Validar fecha/hora pasada (en editar)
+  const now2 = new Date();
+  const hoyStr2 = now2.toISOString().slice(0,10);
+  if (fecha < hoyStr2 || (fecha === hoyStr2 && hora_desde <= now2.toTimeString().slice(0,5))) {
+    return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
   // Validar superposición (excluyendo la reserva actual)
   try {
