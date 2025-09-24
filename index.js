@@ -11,7 +11,7 @@ const productosBuffetRouter = require('./routes/productosBuffet');
 const ventasBuffetRouter = require('./routes/ventasBuffet');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -40,6 +40,6 @@ app.use('/ventas_buffet', ventasBuffetRouter);
 
 // Aquí irá la lógica de login y admins
 
-app.listen(PORT, () => {
-  console.log(`Servidor backend escuchando en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor backend escuchando en http://0.0.0.0:${PORT}`);
 });
