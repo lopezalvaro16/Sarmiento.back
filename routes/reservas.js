@@ -4,6 +4,16 @@ const pool = require('../db');
 
 console.log('Router de reservas cargado');
 
+// Offset de zona horaria para interpretar las horas recibidas (por defecto -03:00 Buenos Aires)
+// Podés configurar TZ_OFFSET="-03:00" en el entorno del servidor si fuese distinto
+const TZ_OFFSET = process.env.TZ_OFFSET || '-03:00';
+
+function buildZonedDate(fecha, horaHHMM) {
+  // Convierte "YYYY-MM-DD" + "HH:MM" a un Date con offset explícito
+  // Ej: 2025-09-24 + 17:00 -> 2025-09-24T17:00:00-03:00
+  return new Date(`${fecha}T${horaHHMM}:00${TZ_OFFSET}`);
+}
+
 // Endpoint de prueba
 router.get('/test', (req, res) => {
   res.json({ ok: true, msg: 'Funciona el router de reservas' });
@@ -28,10 +38,13 @@ router.post('/', async (req, res) => {
   if (hora_hasta <= hora_desde) {
     return res.status(400).json({ error: 'La hora de fin debe ser mayor a la de inicio' });
   }
-  // Validar fecha/hora pasada
+  // Validar fecha/hora pasada interpretando la hora recibida con el offset configurado
   const now = new Date();
-  const hoyStr = now.toISOString().slice(0,10);
-  if (fecha < hoyStr || (fecha === hoyStr && hora_desde <= now.toTimeString().slice(0,5))) {
+  const startDateTime = buildZonedDate(fecha, hora_desde);
+  if (isNaN(startDateTime.getTime())) {
+    return res.status(400).json({ error: 'Formato de fecha u hora inválido' });
+  }
+  if (startDateTime <= now) {
     return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
   // Validar superposición
@@ -78,10 +91,13 @@ router.put('/:id', async (req, res) => {
   if (hora_hasta <= hora_desde) {
     return res.status(400).json({ error: 'La hora de fin debe ser mayor a la de inicio' });
   }
-  // Validar fecha/hora pasada (en editar)
+  // Validar fecha/hora pasada (en editar) con offset configurado
   const now2 = new Date();
-  const hoyStr2 = now2.toISOString().slice(0,10);
-  if (fecha < hoyStr2 || (fecha === hoyStr2 && hora_desde <= now2.toTimeString().slice(0,5))) {
+  const startDateTime2 = buildZonedDate(fecha, hora_desde);
+  if (isNaN(startDateTime2.getTime())) {
+    return res.status(400).json({ error: 'Formato de fecha u hora inválido' });
+  }
+  if (startDateTime2 <= now2) {
     return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
   // Validar superposición (excluyendo la reserva actual)
