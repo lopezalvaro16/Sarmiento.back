@@ -43,7 +43,7 @@ router.post('/', async (req, res) => {
       [fecha, cancha, hora_desde, hora_hasta]
     );
     if (existe.rows.length > 0) {
-      return res.status(400).json({ error: 'Ya existe una reserva superpuesta para esa cancha, fecha y horario' });
+      return res.status(400).json({ error: 'Ya existe una reserva superpuesta para ese establecimiento, fecha y horario' });
     }
     const result = await pool.query(
       `INSERT INTO reservas (fecha, hora_desde, hora_hasta, cancha, socio, estado)
@@ -94,7 +94,7 @@ router.put('/:id', async (req, res) => {
       [fecha, cancha, hora_desde, hora_hasta, id]
     );
     if (existe.rows.length > 0) {
-      return res.status(400).json({ error: 'Ya existe una reserva superpuesta para esa cancha, fecha y horario' });
+      return res.status(400).json({ error: 'Ya existe una reserva superpuesta para ese establecimiento, fecha y horario' });
     }
     const result = await pool.query(
       `UPDATE reservas SET fecha = $1, hora_desde = $2, hora_hasta = $3, cancha = $4, socio = $5, estado = $6 WHERE id = $7 RETURNING *`,
