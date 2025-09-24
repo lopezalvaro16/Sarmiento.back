@@ -21,6 +21,16 @@ app.get('/', (req, res) => {
   res.send('Backend Club Sarmiento funcionando');
 });
 
+// Healthcheck: verifica servidor y conexión a BD
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', db: 'ok', time: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', db: 'error', time: new Date().toISOString() });
+  }
+});
+
 // --- ENDPOINTS DE RESERVAS ---
 app.use('/reservas', reservasRouter);
 app.use('/auth', authRouter);
