@@ -96,6 +96,49 @@ async function run() {
           nombre TEXT NOT NULL UNIQUE,
           descripcion TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS socios (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero_socio TEXT UNIQUE NOT NULL,
+          nombre TEXT NOT NULL,
+          apellido TEXT NOT NULL,
+          dni TEXT UNIQUE NOT NULL,
+          telefono TEXT,
+          email TEXT,
+          fecha_nacimiento DATE,
+          direccion TEXT,
+          fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE,
+          estado TEXT NOT NULL DEFAULT 'activo',
+          observaciones TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS actividades (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre TEXT NOT NULL,
+          descripcion TEXT,
+          instructor TEXT NOT NULL,
+          horario TEXT NOT NULL,
+          dias_semana TEXT NOT NULL,
+          cupo_maximo INTEGER,
+          cupo_actual INTEGER DEFAULT 0,
+          precio NUMERIC(12,2) DEFAULT 0,
+          estado TEXT NOT NULL DEFAULT 'activa',
+          fecha_inicio DATE,
+          fecha_fin DATE
+        );
+
+        CREATE TABLE IF NOT EXISTS inscripciones (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          socio_id INTEGER NOT NULL,
+          actividad_id INTEGER NOT NULL,
+          fecha_inscripcion DATE NOT NULL DEFAULT CURRENT_DATE,
+          estado TEXT NOT NULL DEFAULT 'activa',
+          fecha_baja DATE,
+          observaciones TEXT,
+          FOREIGN KEY (socio_id) REFERENCES socios(id),
+          FOREIGN KEY (actividad_id) REFERENCES actividades(id),
+          UNIQUE(socio_id, actividad_id)
+        );
       `, (err) => {
         if (err) reject(err);
         else resolve();
@@ -138,8 +181,9 @@ async function run() {
         db.run(`INSERT INTO admins (username, password, role) VALUES 
           ('canchas', ?, 'canchas'),
           ('cobranzas', ?, 'cobranzas'),
-          ('buffet', ?, 'buffet')
-        `, [hash, hash, hash], (err) => {
+          ('buffet', ?, 'buffet'),
+          ('socios', ?, 'socios')
+        `, [hash, hash, hash, hash], (err) => {
           if (err) reject(err);
           else resolve();
         });
@@ -174,6 +218,33 @@ async function run() {
       console.log('✅ Establecimientos iniciales creados');
     } else {
       console.log('ℹ️  Establecimientos ya existen, no se insertan');
+    }
+
+    // Insertar actividades iniciales
+    const actividadesCount = await new Promise((resolve, reject) => {
+      db.get("SELECT COUNT(*) as count FROM actividades", (err, row) => {
+        if (err) reject(err);
+        else resolve(row.count);
+      });
+    });
+
+    if (actividadesCount === 0) {
+      await new Promise((resolve, reject) => {
+        db.run(`INSERT INTO actividades (nombre, descripcion, instructor, horario, dias_semana, cupo_maximo, precio, estado) VALUES 
+          ('Fútbol', 'Clases de fútbol para todas las edades', 'Carlos López', '18:00 - 19:30', 'Lunes, Miércoles, Viernes', 20, 5000, 'activa'),
+          ('Volley', 'Clases de vóley para principiantes y avanzados', 'María González', '19:00 - 20:30', 'Martes, Jueves', 15, 4500, 'activa'),
+          ('Hockey', 'Hockey sobre césped', 'Roberto Silva', '17:30 - 19:00', 'Lunes, Miércoles', 18, 6000, 'activa'),
+          ('Natación', 'Clases de natación', 'Ana Martínez', '16:00 - 17:30', 'Martes, Jueves, Sábado', 12, 7000, 'activa'),
+          ('Tenis', 'Clases de tenis', 'Luis Fernández', '18:30 - 20:00', 'Lunes, Miércoles, Viernes', 8, 8000, 'activa'),
+          ('Gimnasia', 'Gimnasia artística', 'Sofia Rodríguez', '17:00 - 18:30', 'Martes, Jueves', 10, 4000, 'activa')
+        `, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('✅ Actividades iniciales creadas');
+    } else {
+      console.log('ℹ️  Actividades ya existen, no se insertan');
     }
 
     // Verificar tablas creadas
