@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
+const pool = require('../db_sqlite');
 
 console.log('Router de reservas cargado');
 
@@ -60,10 +60,17 @@ router.post('/', async (req, res) => {
     }
     const result = await pool.query(
       `INSERT INTO reservas (fecha, hora_desde, hora_hasta, cancha, socio, estado)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [fecha, hora_desde, hora_hasta, cancha, socio, estado || 'Pendiente']
     );
-    res.status(201).json(result.rows[0]);
+    
+    // Obtener la reserva recién creada
+    const nuevaReserva = await pool.query(
+      'SELECT * FROM reservas WHERE id = ?',
+      [result.lastID]
+    );
+    
+    res.status(201).json(nuevaReserva.rows[0]);
   } catch (err) {
     console.error('Error al crear reserva:', err);
     res.status(500).json({ error: 'Error al crear reserva' });
@@ -113,11 +120,19 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Ya existe una reserva superpuesta para ese establecimiento, fecha y horario' });
     }
     const result = await pool.query(
-      `UPDATE reservas SET fecha = $1, hora_desde = $2, hora_hasta = $3, cancha = $4, socio = $5, estado = $6 WHERE id = $7 RETURNING *`,
+      `UPDATE reservas SET fecha = $1, hora_desde = $2, hora_hasta = $3, cancha = $4, socio = $5, estado = $6 WHERE id = $7`,
       [fecha, hora_desde, hora_hasta, cancha, socio, estado || 'Pendiente', id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
-    res.json(result.rows[0]);
+    
+    if (result.changes === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
+    
+    // Obtener la reserva actualizada
+    const reservaActualizada = await pool.query(
+      'SELECT * FROM reservas WHERE id = ?',
+      [id]
+    );
+    
+    res.json(reservaActualizada.rows[0]);
   } catch (err) {
     console.error('Error al editar reserva:', err);
     res.status(500).json({ error: 'Error al editar reserva' });

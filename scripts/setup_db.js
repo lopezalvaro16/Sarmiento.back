@@ -67,6 +67,14 @@ async function run() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS establecimientos (
+        id SERIAL PRIMARY KEY,
+        nombre TEXT NOT NULL UNIQUE,
+        descripcion TEXT
+      );
+    `);
+
     // Índices útiles
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reservas_fecha_cancha ON reservas (fecha, cancha);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mant_fecha ON mantenimientos (fecha);`);
@@ -84,6 +92,22 @@ async function run() {
       console.log('Admins iniciales creados (pass: 1234)');
     } else {
       console.log('Admins ya existen, no se insertan');
+    }
+
+    // Seeds de establecimientos si no existen
+    const { rows: establecimientosCount } = await client.query(`SELECT COUNT(*)::int AS c FROM establecimientos`);
+    if (establecimientosCount[0].c === 0) {
+      await client.query(`INSERT INTO establecimientos (nombre, descripcion) VALUES 
+        ('Salón Principal', 'Salón principal para eventos y reuniones'),
+        ('Cancha 1', 'Cancha de fútbol principal'),
+        ('Cancha 2', 'Cancha de fútbol secundaria'),
+        ('Quincho', 'Área de quincho para asados y eventos al aire libre'),
+        ('Pileta', 'Piscina del club'),
+        ('Gimnasio', 'Gimnasio con equipamiento deportivo')
+      `);
+      console.log('Establecimientos iniciales creados');
+    } else {
+      console.log('Establecimientos ya existen, no se insertan');
     }
 
     await client.query('COMMIT');

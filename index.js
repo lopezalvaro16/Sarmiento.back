@@ -2,13 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('./db');
+const pool = require('./db_sqlite');
 const SECRET = 'club_sarmiento_secreto';
 const reservasRouter = require('./routes/reservas');
 const authRouter = require('./routes/auth');
 const mantenimientosRouter = require('./routes/mantenimientos');
 const productosBuffetRouter = require('./routes/productosBuffet');
 const ventasBuffetRouter = require('./routes/ventasBuffet');
+const establecimientosRouter = require('./routes/establecimientos');
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -37,6 +38,7 @@ app.use('/auth', authRouter);
 app.use('/mantenimientos', mantenimientosRouter);
 app.use('/productos_buffet', productosBuffetRouter);
 app.use('/ventas_buffet', ventasBuffetRouter);
+app.use('/establecimientos', establecimientosRouter);
 
 // Aquí irá la lógica de login y admins
 
