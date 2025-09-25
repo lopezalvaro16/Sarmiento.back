@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
+const pool = require('../db_sqlite');
 
 // Listar tareas (opcional: filtrar por cancha o estado)
 router.get('/', async (req, res) => {
@@ -9,16 +9,16 @@ router.get('/', async (req, res) => {
   const params = [];
   if (cancha) {
     params.push(cancha);
-    query += ` WHERE cancha = $${params.length}`;
+    query += ` WHERE cancha = ?`;
   }
   if (estado) {
     params.push(estado);
-    query += params.length === 1 ? ` WHERE estado = $${params.length}` : ` AND estado = $${params.length}`;
+    query += params.length === 1 ? ` WHERE estado = ?` : ` AND estado = ?`;
   }
   query += ' ORDER BY fecha DESC, id DESC';
   try {
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json(result.rows || result);
   } catch (err) {
     console.error('Error al obtener mantenimientos:', err);
     res.status(500).json({ error: 'Error al obtener mantenimientos' });
@@ -32,12 +32,17 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
   try {
-    const result = await pool.query(
+    await pool.query(
       `INSERT INTO mantenimientos (fecha, descripcion, estado, responsable, cancha)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+       VALUES (?, ?, ?, ?, ?)`,
       [fecha, descripcion, estado || 'pendiente', responsable, cancha]
     );
-    res.status(201).json(result.rows[0]);
+    
+    // Obtener el registro recién creado
+    const result = await pool.query(
+      'SELECT * FROM mantenimientos ORDER BY id DESC LIMIT 1'
+    );
+    res.status(201).json((result.rows || result)[0]);
   } catch (err) {
     console.error('Error al crear mantenimiento:', err);
     res.status(500).json({ error: 'Error al crear mantenimiento' });
@@ -49,18 +54,25 @@ router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { fecha, descripcion, estado, responsable, cancha } = req.body;
   try {
-    const result = await pool.query(
+    await pool.query(
       `UPDATE mantenimientos SET
-         fecha = COALESCE($1, fecha),
-         descripcion = COALESCE($2, descripcion),
-         estado = COALESCE($3, estado),
-         responsable = COALESCE($4, responsable),
-         cancha = COALESCE($5, cancha)
-       WHERE id = $6 RETURNING *`,
+         fecha = COALESCE(?, fecha),
+         descripcion = COALESCE(?, descripcion),
+         estado = COALESCE(?, estado),
+         responsable = COALESCE(?, responsable),
+         cancha = COALESCE(?, cancha)
+       WHERE id = ?`,
       [fecha, descripcion, estado, responsable, cancha, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Mantenimiento no encontrado' });
-    res.json(result.rows[0]);
+    
+    // Obtener el registro actualizado
+    const result = await pool.query(
+      'SELECT * FROM mantenimientos WHERE id = ?',
+      [id]
+    );
+    const data = result.rows || result;
+    if (data.length === 0) return res.status(404).json({ error: 'Mantenimiento no encontrado' });
+    res.json(data[0]);
   } catch (err) {
     console.error('Error al actualizar mantenimiento:', err);
     res.status(500).json({ error: 'Error al actualizar mantenimiento' });
