@@ -35,9 +35,11 @@ router.post('/', async (req, res) => {
   if (!fecha || !hora_desde || !hora_hasta || !cancha || !socio) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
-  if (hora_hasta <= hora_desde) {
-    return res.status(400).json({ error: 'La hora de fin debe ser mayor a la de inicio' });
+  // Validar horarios - permitir cruzar medianoche
+  if (hora_hasta === hora_desde) {
+    return res.status(400).json({ error: 'La hora de fin debe ser diferente a la de inicio' });
   }
+  // Si hora_hasta <= hora_desde, significa que cruza medianoche (ej: 23:00 a 04:00) - esto es válido
   // Validar fecha/hora pasada interpretando la hora recibida con el offset configurado
   const now = new Date();
   const startDateTime = buildZonedDate(fecha, hora_desde);
@@ -47,15 +49,47 @@ router.post('/', async (req, res) => {
   if (startDateTime <= now) {
     return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
-  // Validar superposición
+  // Validar superposición - manejar horarios que cruzan medianoche
   try {
-    const existe = await pool.query(
-      `SELECT 1 FROM reservas
-       WHERE fecha = $1 AND cancha = $2
-         AND (hora_desde < $4 AND hora_hasta > $3)`,
-      [fecha, cancha, hora_desde, hora_hasta]
+    // Obtener todas las reservas existentes para la misma fecha y establecimiento
+    const reservasExistentes = await pool.query(
+      `SELECT hora_desde, hora_hasta FROM reservas
+       WHERE fecha = $1 AND cancha = $2`,
+      [fecha, cancha]
     );
-    if (existe.rows.length > 0) {
+    
+    // Verificar superposición con cada reserva existente
+    const haySuperposicion = reservasExistentes.rows.some(r => {
+      const rHoraDesde = r.hora_desde;
+      const rHoraHasta = r.hora_hasta;
+      const nHoraDesde = hora_desde;
+      const nHoraHasta = hora_hasta;
+      
+      // Si la reserva existente cruza medianoche
+      if (rHoraHasta <= rHoraDesde) {
+        // Si la nueva reserva también cruza medianoche
+        if (nHoraHasta <= nHoraDesde) {
+          // Ambas cruzan medianoche - siempre hay superposición
+          return true;
+        } else {
+          // Solo la existente cruza medianoche
+          // La nueva reserva se superpone si está en el rango de medianoche
+          return nHoraDesde >= rHoraDesde || nHoraHasta <= rHoraHasta;
+        }
+      } else {
+        // La reserva existente no cruza medianoche
+        if (nHoraHasta <= nHoraDesde) {
+          // Solo la nueva cruza medianoche
+          // Se superpone si la existente está en el rango de medianoche
+          return rHoraDesde >= nHoraDesde || rHoraHasta <= nHoraHasta;
+        } else {
+          // Ninguna cruza medianoche - comparación normal
+          return nHoraDesde < rHoraHasta && nHoraHasta > rHoraDesde;
+        }
+      }
+    });
+    
+    if (haySuperposicion) {
       return res.status(400).json({ error: 'Ya existe una reserva superpuesta para ese establecimiento, fecha y horario' });
     }
     const result = await pool.query(
@@ -95,9 +129,11 @@ router.put('/:id', async (req, res) => {
   if (!fecha || !hora_desde || !hora_hasta || !cancha || !socio) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
-  if (hora_hasta <= hora_desde) {
-    return res.status(400).json({ error: 'La hora de fin debe ser mayor a la de inicio' });
+  // Validar horarios - permitir cruzar medianoche
+  if (hora_hasta === hora_desde) {
+    return res.status(400).json({ error: 'La hora de fin debe ser diferente a la de inicio' });
   }
+  // Si hora_hasta <= hora_desde, significa que cruza medianoche (ej: 23:00 a 04:00) - esto es válido
   // Validar fecha/hora pasada (en editar) con offset configurado
   const now2 = new Date();
   const startDateTime2 = buildZonedDate(fecha, hora_desde);
@@ -107,16 +143,47 @@ router.put('/:id', async (req, res) => {
   if (startDateTime2 <= now2) {
     return res.status(400).json({ error: 'No se puede reservar en el pasado.' });
   }
-  // Validar superposición (excluyendo la reserva actual)
+  // Validar superposición - manejar horarios que cruzan medianoche (excluyendo la reserva actual)
   try {
-    const existe = await pool.query(
-      `SELECT 1 FROM reservas
-       WHERE fecha = $1 AND cancha = $2
-         AND (hora_desde < $4 AND hora_hasta > $3)
-         AND id <> $5`,
-      [fecha, cancha, hora_desde, hora_hasta, id]
+    // Obtener todas las reservas existentes para la misma fecha y establecimiento (excluyendo la actual)
+    const reservasExistentes = await pool.query(
+      `SELECT hora_desde, hora_hasta FROM reservas
+       WHERE fecha = $1 AND cancha = $2 AND id <> $3`,
+      [fecha, cancha, id]
     );
-    if (existe.rows.length > 0) {
+    
+    // Verificar superposición con cada reserva existente
+    const haySuperposicion = reservasExistentes.rows.some(r => {
+      const rHoraDesde = r.hora_desde;
+      const rHoraHasta = r.hora_hasta;
+      const nHoraDesde = hora_desde;
+      const nHoraHasta = hora_hasta;
+      
+      // Si la reserva existente cruza medianoche
+      if (rHoraHasta <= rHoraDesde) {
+        // Si la nueva reserva también cruza medianoche
+        if (nHoraHasta <= nHoraDesde) {
+          // Ambas cruzan medianoche - siempre hay superposición
+          return true;
+        } else {
+          // Solo la existente cruza medianoche
+          // La nueva reserva se superpone si está en el rango de medianoche
+          return nHoraDesde >= rHoraDesde || nHoraHasta <= rHoraHasta;
+        }
+      } else {
+        // La reserva existente no cruza medianoche
+        if (nHoraHasta <= nHoraDesde) {
+          // Solo la nueva cruza medianoche
+          // Se superpone si la existente está en el rango de medianoche
+          return rHoraDesde >= nHoraDesde || rHoraHasta <= nHoraHasta;
+        } else {
+          // Ninguna cruza medianoche - comparación normal
+          return nHoraDesde < rHoraHasta && nHoraHasta > rHoraDesde;
+        }
+      }
+    });
+    
+    if (haySuperposicion) {
       return res.status(400).json({ error: 'Ya existe una reserva superpuesta para ese establecimiento, fecha y horario' });
     }
     const result = await pool.query(
