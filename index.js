@@ -10,6 +10,9 @@ const mantenimientosRouter = require('./routes/mantenimientos');
 const productosBuffetRouter = require('./routes/productosBuffet');
 const ventasBuffetRouter = require('./routes/ventasBuffet');
 const establecimientosRouter = require('./routes/establecimientos');
+const sociosRouter = require('./routes/socios');
+const actividadesRouter = require('./routes/actividades');
+const inscripcionesRouter = require('./routes/inscripciones');
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -39,6 +42,9 @@ app.use('/mantenimientos', mantenimientosRouter);
 app.use('/productos_buffet', productosBuffetRouter);
 app.use('/ventas_buffet', ventasBuffetRouter);
 app.use('/establecimientos', establecimientosRouter);
+app.use('/socios', sociosRouter);
+app.use('/actividades', actividadesRouter);
+app.use('/inscripciones', inscripcionesRouter);
 
 // Aquí irá la lógica de login y admins
 

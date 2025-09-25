@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../db');
+const pool = require('../db_sqlite');
 const SECRET = 'club_sarmiento_secreto';
 
 // Login
@@ -10,8 +10,8 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     console.log('Intento de login:', username, password);
-    const result = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
-    const user = result.rows[0];
+    const result = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    const user = (result.rows || result)[0];
     if (!user) {
       console.log('Usuario no encontrado:', username);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
