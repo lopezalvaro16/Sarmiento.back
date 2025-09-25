@@ -7,7 +7,9 @@
     "start": "node index.js",
     "dev": "npx nodemon index.js",
     "db:setup": "node scripts/setup_db.js",
-    "db:setup:sqlite": "node scripts/setup_db_sqlite.js"
+    "db:setup:sqlite": "node scripts/setup_db_sqlite.js",
+    "db:check-users": "node scripts/check_users.js",
+    "db:create-socios": "node scripts/create_socios_user.js"
   },
   "keywords": [],
   "author": "",
