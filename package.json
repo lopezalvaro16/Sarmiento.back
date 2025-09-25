@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "dev": "npx nodemon index.js",
-    "db:setup": "node scripts/setup_db.js"
+    "db:setup": "node scripts/setup_db.js",
+    "db:setup:sqlite": "node scripts/setup_db_sqlite.js"
   },
   "keywords": [],
   "author": "",
