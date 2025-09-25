@@ -89,14 +89,23 @@ async function run() {
       });
     });
 
+    // Crear tabla establecimientos
     await new Promise((resolve, reject) => {
       db.run(`
         CREATE TABLE IF NOT EXISTS establecimientos (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           nombre TEXT NOT NULL UNIQUE,
           descripcion TEXT
-        );
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
+    // Crear tabla socios
+    await new Promise((resolve, reject) => {
+      db.run(`
         CREATE TABLE IF NOT EXISTS socios (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           numero_socio TEXT UNIQUE NOT NULL,
@@ -110,8 +119,16 @@ async function run() {
           fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE,
           estado TEXT NOT NULL DEFAULT 'activo',
           observaciones TEXT
-        );
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
+    // Crear tabla actividades
+    await new Promise((resolve, reject) => {
+      db.run(`
         CREATE TABLE IF NOT EXISTS actividades (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           nombre TEXT NOT NULL,
@@ -125,8 +142,16 @@ async function run() {
           estado TEXT NOT NULL DEFAULT 'activa',
           fecha_inicio DATE,
           fecha_fin DATE
-        );
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
+    // Crear tabla inscripciones
+    await new Promise((resolve, reject) => {
+      db.run(`
         CREATE TABLE IF NOT EXISTS inscripciones (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           socio_id INTEGER NOT NULL,
@@ -138,7 +163,7 @@ async function run() {
           FOREIGN KEY (socio_id) REFERENCES socios(id),
           FOREIGN KEY (actividad_id) REFERENCES actividades(id),
           UNIQUE(socio_id, actividad_id)
-        );
+        )
       `, (err) => {
         if (err) reject(err);
         else resolve();
