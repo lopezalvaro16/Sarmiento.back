@@ -162,6 +162,16 @@ async function run() {
       });
     });
 
+    // Verificar tablas creadas
+    console.log('🔍 Verificando tablas...');
+    const tables = await new Promise((resolve, reject) => {
+      db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    console.log('📋 Tablas creadas:', tables.map(t => t.name).join(', '));
+
     // Insertar datos iniciales
     console.log('🌱 Insertando datos iniciales...');
 
@@ -246,16 +256,6 @@ async function run() {
     } else {
       console.log('ℹ️  Actividades ya existen, no se insertan');
     }
-
-    // Verificar tablas creadas
-    console.log('🔍 Verificando tablas...');
-    const tables = await new Promise((resolve, reject) => {
-      db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-    console.log('📋 Tablas creadas:', tables.map(t => t.name).join(', '));
 
     console.log('🎉 Setup DB completado con éxito!');
     console.log('💡 Ahora puedes reiniciar el servidor con: pm2 restart back-sarmiento --update-env');
