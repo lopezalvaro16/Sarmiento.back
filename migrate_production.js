@@ -148,18 +148,19 @@ db.serialize(() => {
       } else {
         console.log('✅ Productos iniciales del buffet insertados');
       }
+      
+      // Cerrar la base de datos DESPUÉS de que todas las operaciones terminen
+      console.log('🎉 Migración del buffet completada exitosamente');
+      
+      db.close((err) => {
+        if (err) {
+          console.error('❌ Error cerrando base de datos:', err);
+          process.exit(1);
+        } else {
+          console.log('✅ Base de datos cerrada correctamente');
+          console.log('🚀 El buffet está listo para usar en producción');
+        }
+      });
     });
-
-    console.log('🎉 Migración del buffet completada exitosamente');
   });
-});
-
-db.close((err) => {
-  if (err) {
-    console.error('❌ Error cerrando base de datos:', err);
-    process.exit(1);
-  } else {
-    console.log('✅ Base de datos cerrada correctamente');
-    console.log('🚀 El buffet está listo para usar en producción');
-  }
 });
