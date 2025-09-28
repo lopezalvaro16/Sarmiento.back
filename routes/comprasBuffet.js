@@ -26,20 +26,20 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    
     // Registrar la compra
-    const compraResult = await client.query(
+    const compraResult = await pool.query(
       `INSERT INTO compras_buffet (producto_id, cantidad, precio_total, proveedor, responsable, observacion)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [producto_id, cantidad, precio_total, proveedor || null, responsable || null, observacion || null]
     );
     
+    // Obtener el ID de la compra insertada
+    const compraId = compraResult.lastID;
+    
     // Actualizar stock del producto
-    const prodResult = await client.query(
-      `SELECT cantidad, unidad FROM productos_buffet WHERE id = $1`, [producto_id]
+    const prodResult = await pool.query(
+      `SELECT cantidad, unidad FROM productos_buffet WHERE id = ?`, [producto_id]
     );
     
     if (prodResult.rows.length === 0) {
@@ -49,27 +49,32 @@ router.post('/', async (req, res) => {
     const stockActual = parseInt(prodResult.rows[0].cantidad) || 0;
     const nuevaCantidad = stockActual + parseInt(cantidad);
     
-    await client.query(
-      `UPDATE productos_buffet SET cantidad = $1 WHERE id = $2`,
+    await pool.query(
+      `UPDATE productos_buffet SET cantidad = ? WHERE id = ?`,
       [nuevaCantidad, producto_id]
     );
     
     // Registrar movimiento de entrada
-    await client.query(
+    await pool.query(
       `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, responsable, observacion)
-       VALUES ($1, $2, $3, $4, $5)`,
+       VALUES (?, ?, ?, ?, ?)`,
       [producto_id, 'entrada', cantidad, responsable || null, observacion || 'Compra']
     );
     
-    await client.query('COMMIT');
-    res.status(201).json(compraResult.rows[0]);
+    // Obtener la compra completa para devolverla
+    const compraCompleta = await pool.query(
+      `SELECT c.*, p.nombre AS producto_nombre, p.unidad AS producto_unidad
+       FROM compras_buffet c
+       JOIN productos_buffet p ON c.producto_id = p.id
+       WHERE c.id = ?`,
+      [compraId]
+    );
+    
+    res.status(201).json(compraCompleta.rows[0]);
     
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('Error al registrar compra:', err);
     res.status(500).json({ error: 'Error al registrar compra' });
-  } finally {
-    client.release();
   }
 });
 
@@ -105,13 +110,10 @@ router.put('/:id', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    
     // Obtener compra original para calcular diferencia
-    const compraOriginal = await client.query(
-      'SELECT * FROM compras_buffet WHERE id = $1', [id]
+    const compraOriginal = await pool.query(
+      'SELECT * FROM compras_buffet WHERE id = ?', [id]
     );
     
     if (compraOriginal.rows.length === 0) {
@@ -121,61 +123,63 @@ router.put('/:id', async (req, res) => {
     const diferenciaCantidad = parseInt(cantidad) - parseInt(compraOriginal.rows[0].cantidad);
     
     // Actualizar compra
-    const result = await client.query(
+    const result = await pool.query(
       `UPDATE compras_buffet 
-       SET producto_id = $1, cantidad = $2, precio_total = $3, proveedor = $4, 
-           responsable = $5, observacion = $6, fecha_modificacion = NOW()
-       WHERE id = $7 RETURNING *`,
+       SET producto_id = ?, cantidad = ?, precio_total = ?, proveedor = ?, 
+           responsable = ?, observacion = ?, fecha_modificacion = CURRENT_TIMESTAMP
+       WHERE id = ?`,
       [producto_id, cantidad, precio_total, proveedor || null, responsable || null, 
        observacion || null, id]
     );
     
     // Ajustar stock del producto
     if (diferenciaCantidad !== 0) {
-      const prodResult = await client.query(
-        `SELECT cantidad FROM productos_buffet WHERE id = $1`, [producto_id]
+      const prodResult = await pool.query(
+        `SELECT cantidad FROM productos_buffet WHERE id = ?`, [producto_id]
       );
       
       const stockActual = parseInt(prodResult.rows[0].cantidad) || 0;
       const nuevaCantidad = stockActual + diferenciaCantidad;
       
-      await client.query(
-        `UPDATE productos_buffet SET cantidad = $1 WHERE id = $2`,
+      await pool.query(
+        `UPDATE productos_buffet SET cantidad = ? WHERE id = ?`,
         [nuevaCantidad, producto_id]
       );
       
       // Registrar movimiento de ajuste
-      await client.query(
+      await pool.query(
         `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, responsable, observacion)
-         VALUES ($1, $2, $3, $4, $5)`,
+         VALUES (?, ?, ?, ?, ?)`,
         [producto_id, diferenciaCantidad > 0 ? 'entrada' : 'salida', 
          Math.abs(diferenciaCantidad), responsable || null, 'Ajuste por edición de compra']
       );
     }
     
-    await client.query('COMMIT');
-    res.json(result.rows[0]);
+    // Obtener la compra actualizada
+    const compraActualizada = await pool.query(
+      `SELECT c.*, p.nombre AS producto_nombre, p.unidad AS producto_unidad
+       FROM compras_buffet c
+       JOIN productos_buffet p ON c.producto_id = p.id
+       WHERE c.id = ?`,
+      [id]
+    );
+    
+    res.json(compraActualizada.rows[0]);
     
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('Error al editar compra:', err);
     res.status(500).json({ error: 'Error al editar compra' });
-  } finally {
-    client.release();
   }
 });
 
 // Eliminar compra
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
-    
     // Obtener compra para revertir stock
-    const compraResult = await client.query(
-      'SELECT * FROM compras_buffet WHERE id = $1', [id]
+    const compraResult = await pool.query(
+      'SELECT * FROM compras_buffet WHERE id = ?', [id]
     );
     
     if (compraResult.rows.length === 0) {
@@ -185,37 +189,33 @@ router.delete('/:id', async (req, res) => {
     const compra = compraResult.rows[0];
     
     // Revertir stock
-    const prodResult = await client.query(
-      `SELECT cantidad FROM productos_buffet WHERE id = $1`, [compra.producto_id]
+    const prodResult = await pool.query(
+      `SELECT cantidad FROM productos_buffet WHERE id = ?`, [compra.producto_id]
     );
     
     const stockActual = parseInt(prodResult.rows[0].cantidad) || 0;
     const nuevaCantidad = stockActual - parseInt(compra.cantidad);
     
-    await client.query(
-      `UPDATE productos_buffet SET cantidad = $1 WHERE id = $2`,
+    await pool.query(
+      `UPDATE productos_buffet SET cantidad = ? WHERE id = ?`,
       [nuevaCantidad, compra.producto_id]
     );
     
     // Registrar movimiento de reversión
-    await client.query(
+    await pool.query(
       `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, responsable, observacion)
-       VALUES ($1, $2, $3, $4, $5)`,
+       VALUES (?, ?, ?, ?, ?)`,
       [compra.producto_id, 'salida', compra.cantidad, compra.responsable || null, 'Reversión por eliminación de compra']
     );
     
     // Eliminar compra
-    await client.query('DELETE FROM compras_buffet WHERE id = $1', [id]);
+    await pool.query('DELETE FROM compras_buffet WHERE id = ?', [id]);
     
-    await client.query('COMMIT');
     res.json({ message: 'Compra eliminada correctamente' });
     
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('Error al eliminar compra:', err);
     res.status(500).json({ error: 'Error al eliminar compra' });
-  } finally {
-    client.release();
   }
 });
 
