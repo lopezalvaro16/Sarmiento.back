@@ -96,6 +96,66 @@ db.serialize(() => {
     ('Tenis', 'Clases de tenis individuales y grupales', 'Laura Fernández', '15:00-17:00', 'Sábados', 12, 7000.00, '2024-01-01'),
     ('Gimnasia', 'Gimnasia y acondicionamiento físico', 'Roberto Silva', '07:00-09:00', 'Lunes a Viernes', 30, 4000.00, '2024-01-01')
   `);
+
+  // Tablas del buffet
+  db.run(`CREATE TABLE IF NOT EXISTS productos_buffet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    cantidad INTEGER NOT NULL DEFAULT 0,
+    unidad INTEGER NOT NULL DEFAULT 1,
+    precio DECIMAL(10,2),
+    proveedor TEXT,
+    estado TEXT NOT NULL DEFAULT 'activo',
+    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS compras_buffet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL,
+    precio_total DECIMAL(10,2) NOT NULL,
+    proveedor TEXT,
+    responsable TEXT,
+    observacion TEXT,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (producto_id) REFERENCES productos_buffet (id)
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS ventas_buffet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL DEFAULT 0,
+    unidad INTEGER NOT NULL,
+    responsable TEXT,
+    observacion TEXT,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (producto_id) REFERENCES productos_buffet (id)
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS movimientos_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    cantidad INTEGER NOT NULL,
+    responsable TEXT,
+    observacion TEXT,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (producto_id) REFERENCES productos_buffet (id)
+  )`);
+
+  // Productos iniciales del buffet
+  db.run(`INSERT OR IGNORE INTO productos_buffet (nombre, cantidad, unidad, precio, proveedor) VALUES 
+    ('Coca Cola 500ml', 50, 24, 1200.00, 'Coca Cola Company'),
+    ('Agua Mineral 500ml', 30, 12, 800.00, 'Agua Pura'),
+    ('Sandwich Jamón y Queso', 20, 1, 1500.00, 'Panadería Central'),
+    ('Empanadas de Carne', 40, 6, 2000.00, 'Empanadas del Sur'),
+    ('Café', 10, 1, 500.00, 'Café Premium'),
+    ('Galletas', 25, 12, 600.00, 'Galletas del Norte'),
+    ('Jugo de Naranja', 15, 6, 900.00, 'Jugos Naturales'),
+    ('Alfajores', 30, 12, 800.00, 'Dulces del Club')
+  `);
 });
 
 db.close();
