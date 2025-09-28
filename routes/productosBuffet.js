@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
+const pool = require('../db_sqlite');
 
 // Listar productos
 router.get('/', async (req, res) => {
@@ -23,17 +23,17 @@ router.post('/', async (req, res) => {
     // Calcular unidades sueltas iniciales como cantidad * unidad
     const unidadesSueltas = (parseInt(cantidad) || 0) * (parseInt(unidad) || 0);
     const result = await pool.query(
-      `INSERT INTO productos_buffet (nombre, cantidad, unidad, precio, proveedor, estado, unidad_suelta)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [nombre, cantidad || 0, unidad, precio, proveedor, estado || 'activo', unidadesSueltas]
+      `INSERT INTO productos_buffet (nombre, cantidad, unidad, precio, proveedor, estado)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [nombre, cantidad || 0, unidad, precio, proveedor, estado || 'activo']
     );
     // Registrar movimiento de stock (entrada inicial)
     await pool.query(
       `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, responsable, observacion)
-       VALUES ($1, $2, $3, $4, $5)` ,
-      [result.rows[0].id, 'entrada', unidadesSueltas, responsable || null, 'Alta de producto']
+       VALUES (?, ?, ?, ?, ?)`,
+      [result.lastID, 'entrada', unidadesSueltas, responsable || null, 'Alta de producto']
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({ id: result.lastID, nombre, cantidad: cantidad || 0, unidad, precio, proveedor, estado: estado || 'activo' });
   } catch (err) {
     console.error('Error al agregar producto:', err);
     res.status(500).json({ error: 'Error al agregar producto' });
@@ -47,24 +47,24 @@ router.put('/:id', async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE productos_buffet SET
-         nombre = COALESCE($1, nombre),
-         cantidad_unidades = COALESCE($2, cantidad_unidades),
-         precio = COALESCE($3, precio),
-         proveedor = COALESCE($4, proveedor),
-         estado = COALESCE($5, estado)
-       WHERE id = $6 RETURNING *`,
+         nombre = COALESCE(?, nombre),
+         cantidad = COALESCE(?, cantidad),
+         precio = COALESCE(?, precio),
+         proveedor = COALESCE(?, proveedor),
+         estado = COALESCE(?, estado)
+       WHERE id = ?`,
       [nombre, cantidad, precio, proveedor, estado, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (result.changes === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     // Registrar movimiento de stock (edición)
     if (cantidad) {
       await pool.query(
         `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, responsable, observacion)
-         VALUES ($1, $2, $3, $4, $5)` ,
+         VALUES (?, ?, ?, ?, ?)`,
         [id, 'edicion', cantidad, responsable || null, 'Edición de producto']
       );
     }
-    res.json(result.rows[0]);
+    res.json({ id, nombre, cantidad, precio, proveedor, estado });
   } catch (err) {
     console.error('Error al editar producto:', err);
     res.status(500).json({ error: 'Error al editar producto' });
@@ -76,7 +76,7 @@ router.get('/:id/movimientos', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `SELECT * FROM movimientos_stock WHERE producto_id = $1 ORDER BY fecha DESC`,
+      `SELECT * FROM movimientos_stock WHERE producto_id = ? ORDER BY fecha DESC`,
       [id]
     );
     res.json(result.rows);
@@ -91,10 +91,10 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `UPDATE productos_buffet SET estado = 'inactivo' WHERE id = $1 RETURNING *`,
+      `UPDATE productos_buffet SET estado = 'inactivo' WHERE id = ?`,
       [id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (result.changes === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ success: true });
   } catch (err) {
     console.error('Error al eliminar producto:', err);
