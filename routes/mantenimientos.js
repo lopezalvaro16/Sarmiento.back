@@ -79,4 +79,24 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Eliminar tarea
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'DELETE FROM mantenimientos WHERE id = ?',
+      [id]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Mantenimiento no encontrado' });
+    }
+    
+    res.json({ message: 'Mantenimiento eliminado correctamente' });
+  } catch (err) {
+    console.error('Error al eliminar mantenimiento:', err);
+    res.status(500).json({ error: 'Error al eliminar mantenimiento' });
+  }
+});
+
 module.exports = router; 
