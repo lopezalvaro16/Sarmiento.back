@@ -177,3 +177,5 @@ db.serialize(() => {
     }, 1000); // Esperar 1 segundo para que las operaciones ALTER terminen
   });
 });
+
+
