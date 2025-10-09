@@ -1,7 +1,43 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const { execSync } = require('child_process');
+
+// Cargar variables de entorno
+require('dotenv').config();
 
 async function run() {
+  // Verificar e instalar dependencias necesarias para documentos
+  console.log('📦 Verificando dependencias para documentos...');
+  try {
+    require('multer');
+    require('@octokit/rest');
+    console.log('✅ Dependencias de documentos ya instaladas');
+  } catch (error) {
+    console.log('📥 Instalando dependencias de documentos...');
+    try {
+      execSync('npm install multer @octokit/rest', { stdio: 'inherit' });
+      console.log('✅ Dependencias de documentos instaladas');
+    } catch (installError) {
+      console.log('⚠️  Error instalando dependencias:', installError.message);
+      console.log('💡 Instala manualmente: npm install multer @octokit/rest');
+    }
+  }
+
+  // Verificar variables de entorno para documentos
+  console.log('🔧 Verificando variables de entorno para documentos...');
+  const requiredEnvVars = ['GITHUB_TOKEN', 'GITHUB_REPO_OWNER', 'GITHUB_REPO_NAME'];
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.log('⚠️  Variables de entorno faltantes para documentos:');
+    missingVars.forEach(varName => console.log(`   - ${varName}`));
+    console.log('💡 Agrega estas variables al archivo .env:');
+    console.log('   GITHUB_TOKEN=tu_token_de_github');
+    console.log('   GITHUB_REPO_OWNER=tu_usuario_github');
+    console.log('   GITHUB_REPO_NAME=club-sarmiento-docs');
+  } else {
+    console.log('✅ Variables de entorno para documentos configuradas');
+  }
   // Crear la base de datos en el directorio raíz del proyecto
   const dbPath = path.join(__dirname, '..', '..', 'club.db');
   const db = new sqlite3.Database(dbPath);
@@ -170,6 +206,31 @@ async function run() {
       });
     });
 
+    // Crear tabla documentos
+    await new Promise((resolve, reject) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS documentos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre TEXT NOT NULL,
+          categoria TEXT NOT NULL,
+          fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP,
+          mes INTEGER NOT NULL,
+          año INTEGER NOT NULL,
+          tamaño TEXT NOT NULL,
+          tipo_archivo TEXT NOT NULL,
+          url_github TEXT NOT NULL,
+          sha TEXT NOT NULL,
+          descripcion TEXT DEFAULT '',
+          usuario_subida TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
     // Crear índices
     console.log('📊 Creando índices...');
     
@@ -182,6 +243,20 @@ async function run() {
 
     await new Promise((resolve, reject) => {
       db.run(`CREATE INDEX IF NOT EXISTS idx_mant_fecha ON mantenimientos (fecha);`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(`CREATE INDEX IF NOT EXISTS idx_documentos_mes_año ON documentos (mes, año);`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(`CREATE INDEX IF NOT EXISTS idx_documentos_categoria ON documentos (categoria);`, (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -284,6 +359,17 @@ async function run() {
 
     console.log('🎉 Setup DB completado con éxito!');
     console.log('💡 Ahora puedes reiniciar el servidor con: pm2 restart back-sarmiento --update-env');
+    console.log('');
+    console.log('📁 Funcionalidad de documentos incluida:');
+    console.log('   ✅ Tabla documentos creada');
+    console.log('   ✅ Índices optimizados');
+    console.log('   ✅ Dependencias verificadas');
+    console.log('   ✅ Variables de entorno verificadas');
+    console.log('');
+    console.log('🚀 Para usar documentos:');
+    console.log('   1. Configura las variables de entorno si faltan');
+    console.log('   2. Reinicia el servidor');
+    console.log('   3. Ve a la sección "Documentos" en el rol "socios"');
 
   } catch (err) {
     console.error('❌ Error en setup DB:', err);
