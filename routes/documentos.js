@@ -181,19 +181,41 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log('🗑️ Intentando eliminar documento ID:', id);
+    
     const db = require('../db_sqlite');
     const result = await db.query('SELECT * FROM documentos WHERE id = ?', [id]);
     const documento = result.rows[0];
     
     if (!documento) {
+      console.log('❌ Documento no encontrado en BD');
       return res.status(404).json({ error: 'Documento no encontrado' });
     }
 
+    console.log('📄 Documento encontrado:', documento.nombre);
+    console.log('🔗 URL GitHub:', documento.url_github);
+
     // Extraer path del archivo de la URL de GitHub
     const urlParts = documento.url_github.split('/');
-    const filePath = urlParts.slice(7).join('/'); // Remover dominio y partes del path
+    console.log('🔍 URL parts:', urlParts);
+    
+    // Buscar el índice de 'main' en la URL
+    const mainIndex = urlParts.findIndex(part => part === 'main');
+    if (mainIndex === -1) {
+      throw new Error('No se encontró "main" en la URL de GitHub');
+    }
+    
+    let filePath = urlParts.slice(mainIndex + 1).join('/');
+    
+    // Remover parámetros de query (como ?token=...)
+    if (filePath.includes('?')) {
+      filePath = filePath.split('?')[0];
+    }
+    
+    console.log('📁 File path extraído:', filePath);
 
     // Eliminar de GitHub
+    console.log('🗑️ Eliminando de GitHub...');
     await octokit.rest.repos.deleteFile({
       owner: REPO_OWNER,
       repo: REPO_NAME,
@@ -204,15 +226,17 @@ router.delete('/:id', async (req, res) => {
     });
 
     // Eliminar de base de datos local
+    console.log('🗑️ Eliminando de BD local...');
     await db.query('DELETE FROM documentos WHERE id = ?', [id]);
 
+    console.log('✅ Documento eliminado exitosamente');
     res.json({
       success: true,
       message: 'Documento eliminado exitosamente'
     });
 
   } catch (error) {
-    console.error('Error eliminando documento:', error);
+    console.error('❌ Error eliminando documento:', error);
     res.status(500).json({ 
       error: 'Error eliminando documento',
       details: error.message 
