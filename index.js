@@ -14,6 +14,7 @@ const establecimientosRouter = require('./routes/establecimientos');
 const sociosRouter = require('./routes/socios');
 const actividadesRouter = require('./routes/actividades');
 const inscripcionesRouter = require('./routes/inscripciones');
+const documentosRouter = require('./routes/documentos');
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -69,6 +70,7 @@ app.use('/establecimientos', establecimientosRouter);
 app.use('/socios', sociosRouter);
 app.use('/actividades', actividadesRouter);
 app.use('/inscripciones', inscripcionesRouter);
+app.use('/documentos', documentosRouter);
 
 // Aquí irá la lógica de login y admins
 
