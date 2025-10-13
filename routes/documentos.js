@@ -64,6 +64,9 @@ router.post('/upload', upload.single('documento'), async (req, res) => {
     // Limpiar archivo temporal
     fs.unlinkSync(file.path);
 
+    // Crear URL de descarga permanente (sin token)
+    const downloadUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${fileName}`;
+
     // Guardar metadatos en la base de datos local
     const db = require('../db_sqlite');
     const result = await db.query(`
@@ -77,7 +80,7 @@ router.post('/upload', upload.single('documento'), async (req, res) => {
       añoFinal,
       `${(file.size / 1024 / 1024).toFixed(1)} MB`,
       file.mimetype.split('/')[1] || 'unknown',
-      response.data.content.download_url,
+      downloadUrl,
       response.data.content.sha,
       descripcion || '',
       req.user?.username || 'admin'
@@ -89,7 +92,7 @@ router.post('/upload', upload.single('documento'), async (req, res) => {
       data: {
         id: result.rows[0].id,
         nombre: file.originalname,
-        url: response.data.content.download_url,
+        url: downloadUrl,
         sha: response.data.content.sha
       }
     });
@@ -164,8 +167,36 @@ router.get('/download/:id', async (req, res) => {
       return res.status(404).json({ error: 'Documento no encontrado' });
     }
 
-    // Redirigir a la URL de GitHub
-    res.redirect(documento.url_github);
+    // Intentar obtener el archivo desde GitHub
+    try {
+      const githubResponse = await fetch(documento.url_github);
+      
+      if (githubResponse.ok) {
+        // Configurar headers para forzar descarga
+        res.setHeader('Content-Disposition', `attachment; filename="${documento.nombre}"`);
+        res.setHeader('Content-Type', githubResponse.headers.get('content-type') || 'application/octet-stream');
+        
+        // Stream del archivo desde GitHub
+        githubResponse.body.pipe(res);
+        return;
+      } else {
+        console.warn(`GitHub devolvió ${githubResponse.status} para documento ${id}`);
+      }
+    } catch (githubError) {
+      console.warn('Error obteniendo archivo desde GitHub:', githubError.message);
+    }
+
+    // Si GitHub falla, devolver error informativo
+    res.status(404).json({ 
+      error: 'Archivo no disponible',
+      message: 'El archivo no se encuentra disponible en GitHub. Puede que haya sido eliminado o el token haya expirado.',
+      suggestion: 'Intenta subir el archivo nuevamente.',
+      documento: {
+        id: documento.id,
+        nombre: documento.nombre,
+        fecha_subida: documento.fecha_subida
+      }
+    });
 
   } catch (error) {
     console.error('Error descargando documento:', error);
