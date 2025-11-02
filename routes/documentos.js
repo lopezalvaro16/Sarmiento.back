@@ -156,6 +156,7 @@ router.get('/', async (req, res) => {
 
 // Descargar documento
 router.get('/download/:id', async (req, res) => {
+  console.log(`🚀 [DOWNLOAD] Iniciando descarga para documento ID: ${req.params.id}`);
   try {
     const { id } = req.params;
     
@@ -164,8 +165,11 @@ router.get('/download/:id', async (req, res) => {
     const documento = result.rows[0];
     
     if (!documento) {
+      console.log(`❌ [DOWNLOAD] Documento ${id} no encontrado en la base de datos`);
       return res.status(404).json({ error: 'Documento no encontrado' });
     }
+
+    console.log(`📄 [DOWNLOAD] Documento encontrado: ${documento.nombre} (URL: ${documento.url_github})`);
 
     // Intentar obtener el archivo desde GitHub
     let githubResponse;
