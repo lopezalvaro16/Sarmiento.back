@@ -168,8 +168,9 @@ router.get('/download/:id', async (req, res) => {
     }
 
     // Intentar obtener el archivo desde GitHub
+    let githubResponse;
     try {
-      const githubResponse = await fetch(documento.url_github);
+      githubResponse = await fetch(documento.url_github);
       
       if (githubResponse.ok) {
         // Configurar headers para forzar descarga
@@ -180,10 +181,55 @@ router.get('/download/:id', async (req, res) => {
         githubResponse.body.pipe(res);
         return;
       } else {
-        console.warn(`GitHub devolvió ${githubResponse.status} para documento ${id}`);
+        console.warn(`GitHub devolvió ${githubResponse.status} para documento ${id}, intentando reconstruir URL...`);
       }
     } catch (githubError) {
       console.warn('Error obteniendo archivo desde GitHub:', githubError.message);
+    }
+
+    // Si la URL original falla, intentar reconstruir la URL permanente
+    try {
+      // Reconstruir URL usando el formato estándar: año/mes/nombre_archivo
+      const mesFormateado = documento.mes.toString().padStart(2, '0');
+      const rutaReconstruida = `${documento.año}/${mesFormateado}/`;
+      
+      // Buscar el archivo en GitHub usando la API para encontrar el nombre exacto
+      const filesResponse = await octokit.rest.repos.getContent({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        path: rutaReconstruida,
+        ref: 'main'
+      });
+
+      // Buscar archivo que coincida con el nombre (puede tener timestamp)
+      if (Array.isArray(filesResponse.data)) {
+        const archivoEncontrado = filesResponse.data.find(file => 
+          file.name.includes(documento.nombre) || documento.nombre.includes(file.name)
+        );
+
+        if (archivoEncontrado && archivoEncontrado.type === 'file') {
+          // Construir URL permanente
+          const nuevaUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${archivoEncontrado.path}`;
+          
+          // Intentar descargar con la nueva URL
+          githubResponse = await fetch(nuevaUrl);
+          
+          if (githubResponse.ok) {
+            // Actualizar URL en la base de datos
+            await db.query('UPDATE documentos SET url_github = ? WHERE id = ?', [nuevaUrl, id]);
+            
+            // Configurar headers para forzar descarga
+            res.setHeader('Content-Disposition', `attachment; filename="${documento.nombre}"`);
+            res.setHeader('Content-Type', githubResponse.headers.get('content-type') || 'application/octet-stream');
+            
+            // Stream del archivo desde GitHub
+            githubResponse.body.pipe(res);
+            return;
+          }
+        }
+      }
+    } catch (reconstructError) {
+      console.warn('Error reconstruyendo URL:', reconstructError.message);
     }
 
     // Si GitHub falla, devolver error informativo
