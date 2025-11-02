@@ -188,10 +188,16 @@ router.get('/download/:id', async (req, res) => {
     }
 
     // Si la URL original falla, intentar reconstruir la URL permanente
+    console.log(`🔧 Iniciando reconstrucción de URL para documento ${id}...`);
+    console.log(`📋 Datos del documento:`, { nombre: documento.nombre, año: documento.año, mes: documento.mes });
+    
     try {
       // Reconstruir URL usando el formato estándar: año/mes/nombre_archivo
       const mesFormateado = documento.mes.toString().padStart(2, '0');
       const rutaReconstruida = `${documento.año}/${mesFormateado}/`;
+      
+      console.log(`📂 Buscando archivos en ruta: ${rutaReconstruida}`);
+      console.log(`🔑 Repo config: ${REPO_OWNER}/${REPO_NAME}`);
       
       // Buscar el archivo en GitHub usando la API para encontrar el nombre exacto
       const filesResponse = await octokit.rest.repos.getContent({
@@ -201,22 +207,35 @@ router.get('/download/:id', async (req, res) => {
         ref: 'main'
       });
 
+      console.log(`✅ API de GitHub respondió. Archivos encontrados:`, Array.isArray(filesResponse.data) ? filesResponse.data.length : 'No es array');
+
       // Buscar archivo que coincida con el nombre (puede tener timestamp)
       if (Array.isArray(filesResponse.data)) {
+        console.log(`🔍 Buscando archivo que coincida con: "${documento.nombre}"`);
         const archivoEncontrado = filesResponse.data.find(file => 
           file.name.includes(documento.nombre) || documento.nombre.includes(file.name)
         );
 
         if (archivoEncontrado && archivoEncontrado.type === 'file') {
+          console.log(`✅ Archivo encontrado: ${archivoEncontrado.path}`);
+          
           // Construir URL permanente
           const nuevaUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${archivoEncontrado.path}`;
+          
+          console.log(`🔗 Nueva URL construida: ${nuevaUrl}`);
           
           // Intentar descargar con la nueva URL
           githubResponse = await fetch(nuevaUrl);
           
+          console.log(`📥 Respuesta de GitHub con nueva URL: ${githubResponse.status}`);
+          
           if (githubResponse.ok) {
+            console.log(`✅ Descarga exitosa. Actualizando base de datos...`);
+            
             // Actualizar URL en la base de datos
             await db.query('UPDATE documentos SET url_github = ? WHERE id = ?', [nuevaUrl, id]);
+            
+            console.log(`✅ Base de datos actualizada para documento ${id}`);
             
             // Configurar headers para forzar descarga
             res.setHeader('Content-Disposition', `attachment; filename="${documento.nombre}"`);
@@ -225,11 +244,19 @@ router.get('/download/:id', async (req, res) => {
             // Stream del archivo desde GitHub
             githubResponse.body.pipe(res);
             return;
+          } else {
+            console.warn(`❌ Nueva URL también falló con status: ${githubResponse.status}`);
           }
+        } else {
+          console.warn(`❌ No se encontró archivo que coincida con "${documento.nombre}"`);
+          console.log(`📋 Archivos disponibles:`, filesResponse.data.map(f => f.name));
         }
+      } else {
+        console.warn(`❌ La respuesta de GitHub no es un array:`, typeof filesResponse.data);
       }
     } catch (reconstructError) {
-      console.warn('Error reconstruyendo URL:', reconstructError.message);
+      console.error('❌ Error reconstruyendo URL:', reconstructError.message);
+      console.error('❌ Stack trace:', reconstructError.stack);
     }
 
     // Si GitHub falla, devolver error informativo
