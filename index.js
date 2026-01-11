@@ -19,7 +19,48 @@ const documentosRouter = require('./routes/documentos');
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
-app.use(cors());
+// Configuración de CORS más robusta
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como Postman o aplicaciones móviles)
+    if (!origin) return callback(null, true);
+    
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://sarmiento-front-jzc3.vercel.app',
+      /^https:\/\/sarmiento-front.*\.vercel\.app$/
+    ];
+    
+    // Verificar si el origen está permitido
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return origin === allowed;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('⚠️ Origen no permitido:', origin);
+      callback(null, true); // Permitir todos por ahora, ajustar según necesidad
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Manejar explícitamente las peticiones OPTIONS
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 // Middleware de logging para todas las requests
