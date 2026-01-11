@@ -5,6 +5,15 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db_sqlite');
 const SECRET = 'club_sarmiento_secreto';
 
+// Manejar peticiones OPTIONS (preflight CORS) para /login
+router.options('/login', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Max-Age', '86400'); // 24 horas
+  res.sendStatus(200);
+});
+
 // Login
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
