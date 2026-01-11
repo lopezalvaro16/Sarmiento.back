@@ -58,8 +58,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Manejar explícitamente las peticiones OPTIONS
-app.options('*', cors(corsOptions));
+// Manejar explícitamente las peticiones OPTIONS (comentado porque cors() ya maneja OPTIONS)
+// app.options('*', cors(corsOptions));
 
 app.use(express.json());
 
