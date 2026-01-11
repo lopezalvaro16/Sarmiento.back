@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db_sqlite');
+const pool = require('../db');
 
 console.log('Router de reservas cargado');
 
@@ -94,17 +94,11 @@ router.post('/', async (req, res) => {
     }
     const result = await pool.query(
       `INSERT INTO reservas (fecha, hora_desde, hora_hasta, cancha, socio, estado)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [fecha, hora_desde, hora_hasta, cancha, socio, estado || 'Pendiente']
     );
     
-    // Obtener la reserva recién creada
-    const nuevaReserva = await pool.query(
-      'SELECT * FROM reservas WHERE id = ?',
-      [result.lastID]
-    );
-    
-    res.status(201).json(nuevaReserva.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Error al crear reserva:', err);
     res.status(500).json({ error: 'Error al crear reserva' });
@@ -191,11 +185,11 @@ router.put('/:id', async (req, res) => {
       [fecha, hora_desde, hora_hasta, cancha, socio, estado || 'Pendiente', id]
     );
     
-    if (result.changes === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Reserva no encontrada' });
     
     // Obtener la reserva actualizada
     const reservaActualizada = await pool.query(
-      'SELECT * FROM reservas WHERE id = ?',
+      'SELECT * FROM reservas WHERE id = $1',
       [id]
     );
     

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db_sqlite');
+const pool = require('../db');
 
 // Listar tareas (opcional: filtrar por cancha o estado)
 router.get('/', async (req, res) => {

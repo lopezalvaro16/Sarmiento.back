@@ -68,10 +68,10 @@ router.post('/upload', upload.single('documento'), async (req, res) => {
     const downloadUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${fileName}`;
 
     // Guardar metadatos en la base de datos local
-    const db = require('../db_sqlite');
+    const db = require('../db');
     const result = await db.query(`
       INSERT INTO documentos (nombre, categoria, fecha_subida, mes, año, tamaño, tipo_archivo, url_github, sha, descripcion, usuario_subida)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *
     `, [
       file.originalname,
       categoria,
@@ -111,28 +111,33 @@ router.get('/', async (req, res) => {
   try {
     const { mes, año, categoria, search } = req.query;
     
-    const db = require('../db_sqlite');
+    const db = require('../db');
     let query = 'SELECT * FROM documentos WHERE 1=1';
     const params = [];
+    let paramIndex = 1;
 
     if (mes && mes !== 'todos') {
-      query += ' AND mes = ?';
+      query += ` AND mes = $${paramIndex}`;
       params.push(parseInt(mes));
+      paramIndex++;
     }
 
     if (año) {
-      query += ' AND año = ?';
+      query += ` AND año = $${paramIndex}`;
       params.push(parseInt(año));
+      paramIndex++;
     }
 
     if (categoria && categoria !== 'todos') {
-      query += ' AND categoria = ?';
+      query += ` AND categoria = $${paramIndex}`;
       params.push(categoria);
+      paramIndex++;
     }
 
     if (search) {
-      query += ' AND nombre LIKE ?';
+      query += ` AND nombre LIKE $${paramIndex}`;
       params.push(`%${search}%`);
+      paramIndex++;
     }
 
     query += ' ORDER BY fecha_subida DESC';
@@ -160,8 +165,8 @@ router.get('/download/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const db = require('../db_sqlite');
-    const result = await db.query('SELECT * FROM documentos WHERE id = ?', [id]);
+    const db = require('../db');
+    const result = await db.query('SELECT * FROM documentos WHERE id = $1', [id]);
     const documento = result.rows[0];
     
     if (!documento) {
@@ -237,7 +242,7 @@ router.get('/download/:id', async (req, res) => {
             console.log(`✅ Descarga exitosa. Actualizando base de datos...`);
             
             // Actualizar URL en la base de datos
-            await db.query('UPDATE documentos SET url_github = ? WHERE id = ?', [nuevaUrl, id]);
+            await db.query('UPDATE documentos SET url_github = $1 WHERE id = $2', [nuevaUrl, id]);
             
             console.log(`✅ Base de datos actualizada para documento ${id}`);
             
@@ -291,8 +296,8 @@ router.delete('/:id', async (req, res) => {
     
     console.log('🗑️ Intentando eliminar documento ID:', id);
     
-    const db = require('../db_sqlite');
-    const result = await db.query('SELECT * FROM documentos WHERE id = ?', [id]);
+    const db = require('../db');
+    const result = await db.query('SELECT * FROM documentos WHERE id = $1', [id]);
     const documento = result.rows[0];
     
     if (!documento) {
@@ -335,7 +340,7 @@ router.delete('/:id', async (req, res) => {
 
     // Eliminar de base de datos local
     console.log('🗑️ Eliminando de BD local...');
-    await db.query('DELETE FROM documentos WHERE id = ?', [id]);
+    await db.query('DELETE FROM documentos WHERE id = $1', [id]);
 
     console.log('✅ Documento eliminado exitosamente');
     res.json({

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db_sqlite');
+const pool = require('../db');
 
 // Obtener todos los establecimientos
 router.get('/', async (req, res) => {

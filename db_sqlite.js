@@ -1,8 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-// Crear la base de datos en el directorio raíz del proyecto
-const dbPath = path.join(__dirname, '..', 'club.db');
+// Crear la base de datos en el directorio raíz del proyecto (mismo lugar que setup_db_sqlite.js)
+const dbPath = path.join(__dirname, '..', '..', 'club.db');
 const db = new sqlite3.Database(dbPath);
 
 // Wrapper para hacer que la API sea compatible con PostgreSQL

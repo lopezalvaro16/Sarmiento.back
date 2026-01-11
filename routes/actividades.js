@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db_sqlite');
+const pool = require('../db');
 
 // GET - Obtener todas las actividades con filtros
 router.get('/', async (req, res) => {

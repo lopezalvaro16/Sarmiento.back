@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../db_sqlite');
+const pool = require('../db');
 const SECRET = 'club_sarmiento_secreto';
 
 // Manejar peticiones OPTIONS (preflight CORS) para /login
@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
     
     // Buscar usuario
     console.log('Buscando usuario en base de datos...');
-    const result = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    const result = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
     console.log('Resultado query:', result);
     
     const user = (result.rows || result)[0];
